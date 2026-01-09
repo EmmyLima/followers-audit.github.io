@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Audit Tool</title>
+    <style>
+        body {
+            align-items: center;
+            background-color: #fafafa;
+            background: radial-gradient(circle at 30% 107%, #fffac0 0%, #fbf5b7 5%, #f1aaa2 45%, #fc83d5 60%, #90acff 90%);
+            background-attachment: fixed;
+            display: flex;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            justify-content: center;
+            margin: 0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: #fff;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 30px;
+            width: 580px;
+        }
+
+        .file-input-group {
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-weight: 300;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            font-weight: 400;
+            margin-bottom: 20px;
+            text-align: left;
+            font-size: 1.2rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        #results {
+            margin-top: 30px;
+            white-space: pre-wrap;
+        }
+
+        .run-btn {
+            background-color: #0095f6;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            padding: 10px 20px;
+            width: 100%;
+        }
+
+        .run-btn:hover {
+            background-color: #1877f2;
+        }
+
+        .status-message {
+            border-radius: 4px;
+            display: block;
+            font-size: 13px;
+            margin-top: 10px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .status-message.error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .status-message.success {
+            background-color: #dcfce7;
+            color: #158074;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Instagram Audit</h1>
+
+        <div class="file-input-group">
+            <label>Upload followers.json</label>
+            <input type="file" id="followersFile" accept=".json">
+        </div>
+
+        <div class="file-input-group">
+            <label>Upload following.json</label>
+            <input type="file" id="followingFile" accept=".json">
+        </div>
+        <h2>** Deactivated accounts will also appear here. **</h2>
+        <button class="run-btn" onclick="processFiles()">Compare Lists</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        /**
+         * Reads a file and returns its content as a JSON object.
+         * * @param {File} file - The file object from the input.
+         * @returns {Promise<Object>} The parsed JSON data.
+         */
+        async function parseJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(JSON.parse(e.target.result));
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file);
+            });
+        }
+
+        /**
+         * Main logic to compare the two Instagram JSON structures.
+         * Extracts usernames based on the specific nested paths identified.
+         */
+        async function processFiles() {
+            const f1 = document.getElementById('followersFile').files[0];
+            const f2 = document.getElementById('followingFile').files[0];
+            const output = document.getElementById('results');
+
+            if (!f1 || !f2) {
+                alert("Please upload both files first!");
+                return;
+            }
+
+            try {
+                const followersData = await parseJsonFile(f1);
+                const followingData = await parseJsonFile(f2);
+
+                // Flatten Followers: data -> string_list_data[0].value
+                const followerSet = new Set(
+                    followersData.map(item => item.string_list_data[0].value)
+                );
+
+                // Flatten Following: relationships_following -> title
+                const followingList = followingData.relationships_following || [];
+                const notFollowingBack = followingList
+                    .map(item => item.title)
+                    .filter(username => !followerSet.has(username))
+                    .sort();
+
+                // Displaying results
+                output.innerHTML = `<h3>Users not following you back (${notFollowingBack.length}):</h3>`;
+                output.innerHTML += "<ul>" + notFollowingBack.map(u => `<li>${u}</li>`).join('') + "</ul>";
+
+            } catch (err) {
+                output.innerText = "Error parsing files. Make sure they are the correct Instagram JSON files.";
+                console.error(err);
+            }
+        }
+    </script>
+
+</body>
+
+</html>
